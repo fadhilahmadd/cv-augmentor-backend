@@ -111,7 +111,7 @@ You can interact with the API using the automatically generated documentation or
 
   * **Interactive Docs (Swagger UI)**: Navigate to `http://127.0.0.1:8000/docs` in your browser.
 
-### Endpoint: `POST /api/v1/analyze`
+### Endpoint: `POST /api/v1/analysis`
 
 This is the main endpoint for submitting a CV for analysis.
 
@@ -129,7 +129,7 @@ The endpoint expects a JSON body with the following structure:
 #### Example `curl` Command
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/analyze" \
+curl -X POST "http://127.0.0.1:8000/api/v1/analysis" \
 -H "Content-Type: application/json" \
 -d '{
   "cv_text": "John Doe\nAI Engineer\njohn.doe@email.com...",
