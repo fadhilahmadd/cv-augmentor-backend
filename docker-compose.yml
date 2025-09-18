@@ -48,9 +48,9 @@ services:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - ENVIRONMENT=production
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/acquired-rite-471014-h0-df43c77b4d4f.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
     volumes:
-      - ./acquired-rite-471014-h0-df43c77b4d4f.json:/app/acquired-rite-471014-h0-df43c77b4d4f.json:ro
+      - ./gcp-credentials.json:/app/gcp-credentials.json:ro
 
   worker:
     build:
