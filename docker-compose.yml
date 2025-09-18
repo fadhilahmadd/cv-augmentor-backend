@@ -10,6 +10,8 @@ services:
       - ./ee-email1-sa.json:/home/appuser/app/ee-email1-sa.json
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/home/appuser/app/ee-email1-sa.json
+      - REDIS_HOST=redis
+      - POSTGRES_SERVER=db
     env_file:
       - ./.env
     depends_on:
@@ -29,6 +31,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - cv_augmentor_net
+  
+  redis:
+    image: redis:7-alpine
+    networks:
+      - cv_augmentor_net
+
+  worker:
+    build: .
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=4
+    env_file:
+      - ./.env
+    environment:
+      - REDIS_HOST=redis
+      - POSTGRES_SERVER=db
+    depends_on:
+      - redis
+      - db
     networks:
       - cv_augmentor_net
 

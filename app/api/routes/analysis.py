@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import io
 import zipfile
@@ -5,11 +6,11 @@ from typing import List
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.api.schemas import AnalysisTextRequest, BatchJobResponse, Job, JobResultResponse
 from app.db import crud, models
 from app.db.database import get_db
 from app.core.tasks import run_analysis_task
+from app.worker import run_analysis_task 
 
 router = APIRouter()
 
@@ -27,28 +28,52 @@ async def analyze_text_cv(
 
     background_tasks.add_task(run_analysis_task, job_id, request.cv_text, request.job_role, filename)
 
-    return Job(id=job_id, status="pending", filename=filename)
+    return Job(id=id, status="pending", filename=filename)
 
 @router.post("/analyze/batch", response_model=BatchJobResponse, status_code=202)
 async def analyze_batch_cvs(
-    background_tasks: BackgroundTasks,
     job_role: str = Form(...),
     cv_files: List[UploadFile] = File(...),
     db: AsyncSession = Depends(get_db)
 ):
     batch_id = str(uuid.uuid4())
-    response_jobs = []
 
     for cv_file in cv_files:
         if cv_file.content_type != "text/plain":
             raise HTTPException(status_code=400, detail=f"File '{cv_file.filename}' is not a .txt file.")
 
+    async def read_file(file: UploadFile):
+        content = await file.read()
+        return {"filename": file.filename, "cv_text": content.decode("utf-8")}
+
+    file_data_list = await asyncio.gather(*(read_file(cv_file) for cv_file in cv_files))
+
+    new_job_models = []
+    for file_data in file_data_list:
         job_id = str(uuid.uuid4())
-        await crud.create_job(db=db, job_id=job_id, batch_id=batch_id, filename=cv_file.filename)
-        cv_text = (await cv_file.read()).decode("utf-8")
-        
-        background_tasks.add_task(run_analysis_task, job_id, cv_text, job_role, cv_file.filename)
-        response_jobs.append(Job(job_id=job_id, status="pending", filename=cv_file.filename))
+        file_data["job_id"] = job_id
+        db_job = models.Job(
+            id=job_id,
+            batch_id=batch_id,
+            filename=file_data["filename"],
+            status=models.JobStatus.PENDING
+        )
+        new_job_models.append(db_job)
+
+    db.add_all(new_job_models)
+    await db.commit()
+
+    for job_info in file_data_list:
+        run_analysis_task.delay(
+            job_id=job_info["job_id"],
+            cv_text=job_info["cv_text"],
+            job_role=job_role,
+            filename=job_info["filename"]
+        )
+
+    response_jobs = [
+        Job(id=job.id, status="pending", filename=job.filename) for job in new_job_models
+    ]
 
     return BatchJobResponse(batch_id=batch_id, jobs=response_jobs)
 
@@ -58,6 +83,25 @@ async def get_analysis_status(job_id: str, db: AsyncSession = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     return job
+
+@router.get("/analyze/result/{job_id}")
+async def download_single_result(job_id: str, db: AsyncSession = Depends(get_db)):
+    job = await crud.get_job(db, job_id)
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+        
+    if job.status != models.JobStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Job is not yet complete.")
+
+    report_content = job.result
+    filename = job.filename.replace(".txt", "_report.md") if job.filename else f"{job.id}_report.md"
+    
+    return StreamingResponse(
+        io.StringIO(report_content),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @router.get("/analyze/results/all/{batch_id}")
 async def download_all_batch_results(batch_id: str, db: AsyncSession = Depends(get_db)):

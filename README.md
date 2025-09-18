@@ -30,11 +30,24 @@ The system processes a CV through a sequence of four specialized agents:
   * **Deep CV Analysis**: Extracts and structures information from raw CV text.
   * **Implicit Skill Detection**: Infers skills from project descriptions and experience.
   * **Real-time Market Intelligence**: Queries the web for up-to-date skill requirements.
-  * **Asynchronous Job Processing**: Handles multiple requests concurrently without blocking, ideal for long-running analyses.
+  * **Asynchronous Job Processing**: Handles multiple requests concurrently using Celery and Redis.
   * **Batch & Single File Uploads**: Supports both single CV text input and batch uploads of multiple `.txt` files.
   * **Persistent Job Storage**: All jobs and results are stored securely in a PostgreSQL database.
   * **Downloadable Results**: Provides endpoints to download individual reports or a ZIP archive of an entire batch.
   * **Production-Ready**: Includes a full Docker and Docker Compose setup for easy and reliable deployment.
+
+-----
+
+## 🛠️ Technology Stack
+
+  * **Backend**: FastAPI
+  * **AI Orchestration**: LangGraph
+  * **Database**: PostgreSQL with SQLAlchemy (async)
+  * **Task Queue**: Celery
+  * **Message Broker**: Redis
+  * **Containerization**: Docker & Docker Compose
+  * **LLM**: Google Gemini
+  * **Search Tool**: Tavily AI
 
 -----
 
@@ -59,6 +72,7 @@ This is the simplest and most reliable way to get started.
 1.  **Prerequisites**:
       * Python 3.9+
       * A running PostgreSQL server.
+      * A running Redis server.
 2.  **Set Up Virtual Environment & Install Dependencies**:
     ```bash
     # Create the virtual environment
@@ -78,11 +92,20 @@ This is the simplest and most reliable way to get started.
     export GOOGLE_APPLICATION_CREDENTIALS=/path/to/ee-email1-sa.json
     ```
 
-3.  **Configure Environment Variables**: Create a `.env` file and fill in your API keys and the connection details for your local PostgreSQL server.
-4.  **Run the Application**:
-    ```bash
-    uvicorn app.main:app --reload
-    ```
+3.  **Configure Environment Variables**: Create a `.env` file and fill in your API keys and the connection details for your *local* PostgreSQL and Redis servers (e.g., `POSTGRES_SERVER="localhost"`).
+4.  **Run the Services (in separate terminals)**:
+      * **Terminal 1: Start Redis** (if not already running as a service)
+        ```bash
+        redis-server
+        ```
+      * **Terminal 2: Start the Celery Worker**
+        ```bash
+        celery -A app.worker.celery_app worker --loglevel=info --concurrency=4
+        ```
+      * **Terminal 3: Start the FastAPI App**
+        ```bash
+        uvicorn app.main:app --reload
+        ```
 5. **Configure Authentication**
 
     This application supports two methods for authenticating with Google Cloud APIs.
@@ -105,26 +128,24 @@ This is the simplest and most reliable way to get started.
 
 ## 🔌 API Usage
 
-The API is asynchronous. You first submit a job and then use the returned `job_id` to check the status and retrieve the result.
+The API is asynchronous. You first submit a job and then use the returned ID to check the status and retrieve the result.
 
-  * **Interactive Docs (Swagger UI)**: Navigate to `http://127.0.0.1:8000/docs` in your browser.
+  * **Interactive Docs (Swagger UI)**: Navigate to `http://localhost:8000/docs` in your browser.
 
 ### Step 1: Submit a Job
 
-You can submit a single CV as text or upload a batch of `.txt` files.
-
-  * **Endpoint for Text Input**: `POST /api/analyze/text`
-  * **Endpoint for File Uploads**: `POST /api/analyze/batch`
+  * `POST /api/analyze/text`: For a single CV submitted as raw text.
+  * `POST /api/analyze/batch`: For one or more `.txt` files uploaded as a batch.
 
 ### Step 2: Check Job Status
 
-Use the `job_id` from the previous step to poll this endpoint until the status is `completed`.
+Use the `id` from the previous step to poll this endpoint until the status is `completed`.
 
-  * **Endpoint**: `GET /api/analyze/status/{job_id}`
+  * `GET /api/analyze/status/{job_id}`
 
 ### Step 3: Download Results
 
 Once a job is complete, you can download the report(s).
 
-  * **Download a single report**: `GET /api/analyze/result/{job_id}`
-  * **Download all reports from a batch**: `GET /api/analyze/results/all/{batch_id}`
+  * `GET /api/analyze/result/{job_id}`: Downloads a single Markdown report.
+  * `GET /api/analyze/results/all/{batch_id}`: Downloads a ZIP archive of all reports from a batch.

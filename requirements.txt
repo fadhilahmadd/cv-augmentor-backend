@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+gunicorn
 langchain
 langgraph
 langchain_google_genai
@@ -11,3 +12,5 @@ langchain-tavily
 sqlalchemy
 asyncpg
 greenlet
+celery
+redis
