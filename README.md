@@ -129,7 +129,7 @@ The endpoint expects a JSON body with the following structure:
 #### Example `curl` Command
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/analysis" \
+curl -X POST "http://127.0.0.1:8000/api/analysis" \
 -H "Content-Type: application/json" \
 -d '{
   "cv_text": "John Doe\nAI Engineer\njohn.doe@email.com...",

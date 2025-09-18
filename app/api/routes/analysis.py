@@ -12,7 +12,7 @@ async def analysis(request: AnalysisRequest):
     try:
         inputs = {"cv_text": request.cv_text, "job_role": request.job_role}
         final_state = await graph_app.ainvoke(inputs)
-        report = final_state.get("report")
+        report = final_state.get("final_report")
 
         if not report or not isinstance(report, str) or len(report.strip()) == 0:
             raise AIServiceException("AI model generated an empty or invalid report.")

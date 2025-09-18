@@ -62,5 +62,7 @@ report_generator_prompt = PromptTemplate.from_template(
     ---
     {market_analysis}
     ---
+
+    **Begin the report directly with the first Markdown heading. Do not include any introductory sentences or conversational phrases.**
     """
 )
