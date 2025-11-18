@@ -1,6 +1,6 @@
 from langchain_tavily import TavilySearch
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from app.prompts.prompts import market_researcher_prompt
 
 def research_market(state: dict, llm: BaseChatModel):
